@@ -1,6 +1,6 @@
-import React, {Component} from "react";
+import React, {useState, useEffect} from "react";
 import { ToastContainer} from 'react-toastify';
-import { SearchBar } from "components/SearchBar";
+import SearchBar from "components/SearchBar/SearchBar";
 import { Loader } from "components/Loader";
 import { ImageGallery } from "components/ImageGallery/ImageGallery";
 import { Button } from "components/Button";
@@ -10,26 +10,25 @@ import { AppWrapper, ErrorWrapper, MessageEndGallery } from "./App.styled";
 const APIkey = '30028288-057bf7cd6d2ddc6419712f1dc';
 const perPage = 12;
 
-export class App extends Component {
-    state = {
-        imagesTitle: '',
-        hits: null,
-        totalHits: null,
-        isLoader: false,
-        error: null,
-        page: 0,
-        moreImages: false,
-    };
-
-    componentDidUpdate(prevProps, prevState) {    
-        const requestValue=this.state.imagesTitle;
-
-        const { page } = this.state;
+export default function App() {
+    const [imagesTitle, setImagesTitle] = useState('');
+    const [hits, setHits] = useState(null);
+    const [totalHits, setTotalHits] = useState(null);
+    const [isLoader, setIsLoader] = useState(false);
+    const [error, setError] = useState(null);
+    const [page, setPage] = useState(1);
+    const [moreImages, setMoreImages] = useState(false);
     
-        if (prevState.imagesTitle !== this.state.imagesTitle || prevState.page !== this.state.page) {
+    useEffect(() => { 
+        
+            if (imagesTitle === '') {return;}
+
+            const requestValue=imagesTitle;
+
             if (page === 1) {
-                this.setState({isLoader: true, hits: null});
-            }
+                setIsLoader(true);
+                setHits(null);
+            }            
             
             fetch(`https://pixabay.com/api/?q=${requestValue}&page=${page}&key=${APIkey}&image_type=photo&orientation=horizontal&per_page=${perPage}`)
                 .then(response => response.json())       
@@ -39,46 +38,42 @@ export class App extends Component {
                     if (data.hits.length === 0) { 
                         return Promise.reject(new Error(`There are no images "${ requestValue }"`)) 
                     }
-                    if (this.state.hits === null) {
-                        return this.setState({hits: data.hits, totalHits: data.totalHits, moreImages: (Math.ceil(data.totalHits / perPage)) > page });
+                    if (hits === null) {
+                        return(
+                            setHits(data.hits), 
+                            setTotalHits(data.totalHits), 
+                            setMoreImages(Math.ceil(totalHits / perPage) > page)
+                        );                       
                     }
-                    this.setState(prevState => {return { hits: [...prevState.hits, ...data.hits ]}});
-                    this.setState({moreImages: (Math.ceil(data.totalHits / perPage)) > page});
+                    setHits([...hits, ...data.hits])
                 }) 
-                .catch(error => this.setState({ error }))
-                .finally (() => this.setState({isLoader: false}));  
-        }    
-    }
-   
-    handleFormSubmit = imagesTitle => {
-        this.setState({ imagesTitle, error: null, page: 1 });
+                .catch(error => setError(error))
+                .finally (() => setIsLoader(false));        
+        }, [hits, imagesTitle, page, totalHits]);
+    
+        
+    const handleFormSubmit = imagesTitle => {
+        setImagesTitle(imagesTitle);
+        setError(null);
+        setPage(1);
     };
 
-    handleButtonLoadMore = () => {
-        this.setState((prevState => {
-            return {
-                page: prevState.page + 1,
-            };
-        }));
+    const handleButtonLoadMore = () => {
+        setPage(prevPage => prevPage + 1);
     };
 
-    render() {
-        const { hits, isLoader,  error, moreImages } = this.state;
-        // console.log("hits", hits);
-         
-        return (
-            <AppWrapper>        
-                <SearchBar onSubmit={this.handleFormSubmit}/>
-                {error && <ErrorWrapper>{error.message}</ErrorWrapper>}       
-                {isLoader && <Loader />}
-                {hits &&
-                    <>
-                        <ImageGallery imagesFind={hits} />                     
-                        { moreImages ? <Button onSubmitLoadMore={this.handleButtonLoadMore}/> : <MessageEndGallery>There are no more images</MessageEndGallery>}
-                    </>             
-                }   
-                <ToastContainer/>
-            </AppWrapper>
-        );
-    }  
+    return (
+        <AppWrapper>        
+            <SearchBar onSubmit={handleFormSubmit}/>
+            {error && <ErrorWrapper>{error.message}</ErrorWrapper>}       
+            {isLoader && <Loader />}
+            {hits &&
+                <>
+                    <ImageGallery imagesFind={hits} />                     
+                    { moreImages ? <Button onSubmitLoadMore={handleButtonLoadMore}/> : <MessageEndGallery>There are no more images</MessageEndGallery>}
+                </>             
+            }   
+            <ToastContainer/>
+        </AppWrapper>
+    );
 };
